@@ -13,6 +13,7 @@ const chalk = require('chalk');
 const SilentError = require('silent-error'); // From ember-cli
 
 const defaultOptions = {
+  importAssets: true,
   importBootstrapTheme: false,
   importBootstrapCSS: true,
   importBootstrapFont: true,
@@ -49,7 +50,7 @@ module.exports = {
     this.bootstrapOptions = options;
 
     this.validateDependencies();
-    this.preprocessor = this.findPreprocessor();
+    this.preprocessor = options.importAssets ? this.findPreprocessor() : null;
 
     if (!this.hasPreprocessor()) {
 
