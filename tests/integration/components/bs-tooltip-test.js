@@ -6,7 +6,11 @@ import sinonTest from 'ember-sinon-qunit/test-support/test';
 import { test, visibilityClass } from '../../helpers/bootstrap-test';
 
 moduleForComponent('bs-tooltip', 'Integration | Component | bs-tooltip', {
-  integration: true
+  integration: true,
+
+  beforeEach() {
+    this.register('service:-document', window.document, { instantiate: false });
+  }
 });
 
 function setupForPositioning() {

@@ -4,7 +4,11 @@ import { test, defaultButtonClass, visibilityClass } from '../../helpers/bootstr
 import hbs from 'htmlbars-inline-precompile';
 
 moduleForComponent('bs-modal-simple', 'Integration | Component | bs-modal-simple', {
-  integration: true
+  integration: true,
+
+  beforeEach() {
+    this.register('service:-document', window.document, { instantiate: false });
+  }
 });
 
 const transitionTimeout = 500;

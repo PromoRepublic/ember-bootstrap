@@ -5,7 +5,11 @@ import hbs from 'htmlbars-inline-precompile';
 import Ember from 'ember';
 
 moduleForComponent('bs-modal', 'Integration | Component | bs-modal', {
-  integration: true
+  integration: true,
+
+  beforeEach() {
+    this.register('service:-document', window.document, { instantiate: false });
+  }
 });
 
 const transitionTimeout = 500;
