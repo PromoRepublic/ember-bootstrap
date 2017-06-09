@@ -47,6 +47,13 @@ module.exports = {
       // override bootstrapVersion config when environment variable is set
       options.bootstrapVersion = parseInt(process.env.BOOTSTRAPVERSION);
     }
+    if (!options.importAssets) {
+      options = extend(options, {
+        importBootstrapTheme: false,
+        importBootstrapCSS: false,
+        importBootstrapFont: false
+      });
+    }
     this.bootstrapOptions = options;
 
     this.validateDependencies();
