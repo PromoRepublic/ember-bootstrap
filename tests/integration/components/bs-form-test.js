@@ -1,8 +1,23 @@
-import { findAll, find, fillIn, keyEvent, triggerEvent } from 'ember-native-dom-helpers';
+import EmberObject from '@ember/object';
+import { A } from '@ember/array';
+import { resolve, reject } from 'rsvp';
+import {
+  click,
+  findAll,
+  find,
+  fillIn,
+  keyEvent,
+  triggerEvent
+} from 'ember-native-dom-helpers';
 import { moduleForComponent } from 'ember-qunit';
-import { formFeedbackClass, test, testBS3, testBS4, validationErrorClass } from '../../helpers/bootstrap-test';
+import {
+  formFeedbackClass,
+  test,
+  testBS3,
+  testBS4,
+  validationErrorClass
+} from '../../helpers/bootstrap-test';
 import hbs from 'htmlbars-inline-precompile';
-import Ember from 'ember';
 
 moduleForComponent('bs-form', 'Integration | Component | bs-form', {
   integration: true
@@ -62,6 +77,15 @@ test('Submitting the form calls onBeforeSubmit and onSubmit action', async funct
   assert.notOk(invalid.called, 'onInvalid action has not been called');
 });
 
+test('Clicking a submit button submits the form', async function(assert) {
+  let submit = this.spy();
+  this.on('submit', submit);
+  this.render(hbs`{{#bs-form onSubmit=(action "submit")}}{{#bs-button buttonType="submit"}}Submit{{/bs-button}}{{/bs-form}}`);
+
+  await click('button');
+  assert.ok(submit.called, 'onSubmit action has been called');
+});
+
 test('Submitting the form with valid validation calls onBeforeSubmit and onSubmit action', async function(assert) {
   let submit = this.spy();
   let before = this.spy();
@@ -72,7 +96,7 @@ test('Submitting the form with valid validation calls onBeforeSubmit and onSubmi
   this.on('submit', submit);
   this.on('invalid', invalid);
   this.set('validateStub', function() {
-    return Ember.RSVP.resolve('SUCCESS');
+    return resolve('SUCCESS');
   });
   this.render(hbs`{{#bs-form model=model hasValidator=true validate=validateStub onBefore=(action "before") onSubmit=(action "submit") onInvalid=(action "invalid") as |form|}}Test{{/bs-form}}`);
 
@@ -92,7 +116,7 @@ test('Submitting the form with invalid validation calls onBeforeSubmit and onInv
   this.on('submit', submit);
   this.on('invalid', invalid);
   this.set('validateStub', function() {
-    return Ember.RSVP.reject('ERROR');
+    return reject('ERROR');
   });
   this.render(hbs`{{#bs-form model=model hasValidator=true validate=validateStub onBefore=(action "before") onSubmit=(action "submit") onInvalid=(action "invalid") as |form|}}Test{{/bs-form}}`);
 
@@ -106,9 +130,9 @@ test('Submitting the form with invalid validation calls onBeforeSubmit and onInv
 test('Submitting the form with invalid validation shows validation errors', async function(assert) {
   let model = {};
   this.set('model', model);
-  this.set('errors', Ember.A(['There is an error']));
+  this.set('errors', A(['There is an error']));
   this.set('validateStub', function() {
-    return Ember.RSVP.reject();
+    return reject();
   });
   this.render(hbs`{{#bs-form model=model hasValidator=true validate=validateStub as |form|}}{{form.element hasValidator=true errors=errors}}{{/bs-form}}`);
 
@@ -134,7 +158,7 @@ test('Submitting the form with invalid validation shows validation errors', asyn
 });
 
 test('Adds default onChange action to form elements that updates model\'s property', async function(assert) {
-  let model = Ember.Object.create({
+  let model = EmberObject.create({
     name: 'foo'
   });
   this.set('model', model);

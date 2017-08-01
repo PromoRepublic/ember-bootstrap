@@ -1,4 +1,10 @@
-import Ember from 'ember';
+import { assert } from '@ember/debug';
+import Component from '@ember/component';
+import { guidFor } from '@ember/object/internals';
+import { isArray } from '@ember/array';
+import { isBlank } from '@ember/utils';
+import EmberObject, { observer, computed } from '@ember/object';
+import { next, schedule, cancel, later, run } from '@ember/runloop';
 import TransitionSupport from 'ember-bootstrap/mixins/transition-support';
 import getPosition from 'ember-bootstrap/utils/get-position';
 import getCalculatedOffset from 'ember-bootstrap/utils/get-calculated-offset';
@@ -6,24 +12,7 @@ import getParent from 'ember-bootstrap/utils/get-parent';
 import setOffset from 'ember-bootstrap/utils/set-offset';
 import transitionEnd from 'ember-bootstrap/utils/transition-end';
 
-const {
-  assert,
-  Component,
-  computed,
-  guidFor,
-  isArray,
-  isBlank,
-  observer,
-  run,
-  run: {
-    later,
-    cancel,
-    schedule,
-    next
-  }
-} = Ember;
-
-const InState = Ember.Object.extend({
+const InState = EmberObject.extend({
   hover: false,
   focus: false,
   click: false,
@@ -544,8 +533,8 @@ export default Component.extend(TransitionSupport, {
     let height = tip.offsetHeight;
 
     // manually read margins because getBoundingClientRect includes difference
-    let marginTop = parseInt(tip.style.marginTop, 10);
-    let marginLeft = parseInt(tip.style.marginLeft, 10);
+    let marginTop = parseInt(window.getComputedStyle(tip).marginTop, 10);
+    let marginLeft = parseInt(window.getComputedStyle(tip).marginLeft, 10);
 
     // we must check for NaN for ie 8/9
     if (isNaN(marginTop)) {
@@ -562,28 +551,30 @@ export default Component.extend(TransitionSupport, {
 
     this.set('showHelp', true);
 
-    // check to see if placing tip in new offset caused the tip to resize itself
-    let actualWidth = tip.offsetWidth;
-    let actualHeight = tip.offsetHeight;
+    schedule('afterRender', () => {
+      // check to see if placing tip in new offset caused the tip to resize itself
+      let actualWidth = tip.offsetWidth;
+      let actualHeight = tip.offsetHeight;
 
-    if (placement === 'top' && actualHeight !== height) {
-      offset.top = offset.top + height - actualHeight;
-    }
+      if (placement === 'top' && actualHeight !== height) {
+        offset.top = offset.top + height - actualHeight;
+      }
 
-    let delta = this.getViewportAdjustedDelta(placement, offset, actualWidth, actualHeight);
+      let delta = this.getViewportAdjustedDelta(placement, offset, actualWidth, actualHeight);
 
-    if (delta.left) {
-      offset.left += delta.left;
-    } else {
-      offset.top += delta.top;
-    }
+      if (delta.left) {
+        offset.left += delta.left;
+      } else {
+        offset.top += delta.top;
+      }
 
-    let isVertical = /top|bottom/.test(placement);
-    let arrowDelta = isVertical ? delta.left * 2 - width + actualWidth : delta.top * 2 - height + actualHeight;
-    let arrowOffsetPosition = isVertical ? 'offsetWidth' : 'offsetHeight';
+      let isVertical = /top|bottom/.test(placement);
+      let arrowDelta = isVertical ? delta.left * 2 - width + actualWidth : delta.top * 2 - height + actualHeight;
+      let arrowOffsetPosition = isVertical ? 'offsetWidth' : 'offsetHeight';
 
-    setOffset(tip, offset);
-    this.replaceArrow(arrowDelta, tip[arrowOffsetPosition], isVertical);
+      setOffset(tip, offset);
+      this.replaceArrow(arrowDelta, tip[arrowOffsetPosition], isVertical);
+    });
   },
 
   /**
@@ -688,12 +679,9 @@ export default Component.extend(TransitionSupport, {
       .forEach((event) => {
         if (isArray(event)) {
           let [inEvent, outEvent] = event;
-          this._handleEnter = run.bind(this, this.enter);
-          this._handleLeave = run.bind(this, this.leave);
           target.addEventListener(inEvent, this._handleEnter);
           target.addEventListener(outEvent, this._handleLeave);
         } else {
-          this._handleToggle = run.bind(this, this.toggle);
           target.addEventListener(event, this._handleToggle);
         }
       });
@@ -709,21 +697,19 @@ export default Component.extend(TransitionSupport, {
       .forEach((event) => {
         if (isArray(event)) {
           let [inEvent, outEvent] = event;
-          if (this._handleEnter) {
-            target.removeEventListener(inEvent, this._handleEnter);
-            this._handleEnter = null;
-          }
-          if (this._handleLeave) {
-            target.removeEventListener(outEvent, this._handleLeave);
-            this._handleLeave = null;
-          }
+          target.removeEventListener(inEvent, this._handleEnter);
+          target.removeEventListener(outEvent, this._handleLeave);
         } else {
-          if (this._handleToggle) {
-            target.removeEventListener(event, this._handleToggle);
-            this._handleToggle = null;
-          }
+          target.removeEventListener(event, this._handleToggle);
         }
       });
+  },
+
+  init() {
+    this._super(...arguments);
+    this._handleEnter = run.bind(this, this.enter);
+    this._handleLeave = run.bind(this, this.leave);
+    this._handleToggle = run.bind(this, this.toggle);
   },
 
   didInsertElement() {
@@ -734,7 +720,7 @@ export default Component.extend(TransitionSupport, {
     }
   },
 
-  willRemoveElement() {
+  willDestroyElement() {
     this._super(...arguments);
     this.removeListeners();
   },

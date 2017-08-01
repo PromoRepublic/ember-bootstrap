@@ -1,13 +1,9 @@
-import Ember from 'ember';
+import Component from '@ember/component';
+import RSVP from 'rsvp';
+import { set, computed } from '@ember/object';
+import { assert } from '@ember/debug';
+import { isPresent } from '@ember/utils';
 import layout from 'ember-bootstrap/templates/components/bs-form';
-
-const {
-  computed,
-  RSVP,
-  set,
-  assert,
-  isPresent
-} = Ember;
 
 /**
   Render a form with the appropriate Bootstrap layout class (see `formLayout`).
@@ -79,7 +75,7 @@ const {
   @extends Ember.Component
   @public
  */
-export default Ember.Component.extend({
+export default Component.extend({
   layout,
   tagName: 'form',
   classNameBindings: ['layoutClass'],
@@ -206,10 +202,11 @@ export default Ember.Component.extend({
    * Action is called when validation of the model has failed.
    *
    * @event onInvalid
+   * @param { Object } model  The form's `model`
    * @param { Object } error
    * @public
    */
-  onInvalid(error) {}, // eslint-disable-line no-unused-vars
+  onInvalid(model, error) {}, // eslint-disable-line no-unused-vars
 
   /**
    * Submit handler that will send the default action ("action") to the controller when submitting the form.

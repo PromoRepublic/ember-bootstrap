@@ -1,4 +1,5 @@
 /* eslint-env node */
+/* eslint-disable ember-suave/prefer-destructuring */
 'use strict';
 
 const path = require('path');
@@ -9,6 +10,9 @@ const Funnel = require('broccoli-funnel');
 const stew = require('broccoli-stew');
 const mv = stew.mv;
 const rm = stew.rm;
+const map = stew.map;
+const rename = stew.rename;
+const BroccoliDebug = require('broccoli-debug');
 const chalk = require('chalk');
 const SilentError = require('silent-error'); // From ember-cli
 
@@ -26,8 +30,24 @@ const supportedPreprocessors = [
   'sass'
 ];
 
+const componentDependencies = {
+  'bs-button-group': ['bs-button'],
+  'bs-accordion': ['bs-collapse'],
+  'bs-dropdown': ['bs-button'],
+  'bs-modal-simple': ['bs-modal'],
+  'bs-navbar': ['bs-nav', 'bs-button'],
+  'bs-popover': ['bs-contextual-help'],
+  'bs-tab': ['bs-nav'],
+  'bs-tooltip': ['bs-contextual-help']
+};
+
 module.exports = {
   name: 'ember-bootstrap',
+
+  init() {
+    this._super.init.apply(this, arguments);
+    this.debugTree = BroccoliDebug.buildDebugCallback(`ember-bootstrap:${this.name}`);
+  },
 
   includedCommands() {
     return {
@@ -59,22 +79,27 @@ module.exports = {
     this.validateDependencies();
     this.preprocessor = options.importAssets ? this.findPreprocessor() : null;
 
+    // static Bootstrap CSS is mapped to vendor tree, independent of BS version, so import from there
+    let vendorPath = path.join('vendor', 'ember-bootstrap');
+
     if (!this.hasPreprocessor()) {
-
-      // static Bootstrap CSS is mapped to vendor tree, independent of BS version, so import from there
-      let cssPath = path.join('vendor', 'ember-bootstrap');
-
       // / Import css from bootstrap
       if (options.importBootstrapCSS) {
-        app.import(path.join(cssPath, 'bootstrap.css'));
-        app.import(path.join(cssPath, 'bootstrap.css.map'), { destDir: 'assets' });
+        app.import(path.join(vendorPath, 'bootstrap.css'));
+        app.import(path.join(vendorPath, 'bootstrap.css.map'), { destDir: 'assets' });
       }
 
       if (options.importBootstrapTheme) {
-        app.import(path.join(cssPath, 'bootstrap-theme.css'));
-        app.import(path.join(cssPath, 'bootstrap-theme.css.map'), { destDir: 'assets' });
+        app.import(path.join(vendorPath, 'bootstrap-theme.css'));
+        app.import(path.join(vendorPath, 'bootstrap-theme.css.map'), { destDir: 'assets' });
       }
     }
+
+    // import custom addon CSS
+    app.import(path.join(vendorPath, `bs${options.bootstrapVersion}.css`));
+
+    // register library version
+    app.import(path.join(vendorPath, 'register-version.js'));
   },
 
   validateDependencies() {
@@ -157,12 +182,19 @@ module.exports = {
 
   treeForVendor(tree) {
     let trees = [tree];
+    let versionTree = rename(
+      map(tree, 'ember-bootstrap/register-version.template', (c) => c.replace('###VERSION###', require('./package.json').version)),
+      'register-version.template',
+      'register-version.js'
+    );
+    trees.push(versionTree);
+
     if (!this.hasPreprocessor()) {
       trees.push(new Funnel(this.getBootstrapStylesPath(), {
         destDir: 'ember-bootstrap'
       }));
     }
-    return mergeTrees(trees);
+    return mergeTrees(trees, { overwrite: true });
   },
 
   getBootstrapVersion() {
@@ -178,8 +210,13 @@ module.exports = {
     let otherBsVersion = this.getOtherBootstrapVersion();
     let componentsPath = 'components/';
 
+    tree = this.debugTree(tree, 'addon-tree:input');
     tree = mv(tree, `${componentsPath}bs${bsVersion}/`, componentsPath);
     tree = rm(tree, `${componentsPath}bs${otherBsVersion}/**/*`);
+
+    tree = this.debugTree(tree, 'addon-tree:bootstrap-version');
+    tree = this.filterComponents(tree);
+    tree = this.debugTree(tree, 'addon-tree:tree-shaken');
 
     return this._super.treeForAddon.call(this, tree);
   },
@@ -189,9 +226,14 @@ module.exports = {
     let otherBsVersion = this.getOtherBootstrapVersion();
     let templatePath = 'components/';
 
+    tree = this.debugTree(tree, 'addon-templates-tree:input');
     tree = mv(tree, `${templatePath}common/`, templatePath);
     tree = mv(tree, `${templatePath}bs${bsVersion}/`, templatePath);
     tree = rm(tree, `${templatePath}bs${otherBsVersion}/**/*`);
+
+    tree = this.debugTree(tree, 'addon-templates-tree:bootstrap-version');
+    tree = this.filterComponents(tree);
+    tree = this.debugTree(tree, 'addon-templates-tree:tree-shaken');
 
     return this._super.treeForAddonTemplates.call(this, tree);
   },
@@ -204,5 +246,69 @@ module.exports = {
 
   warn(message) {
     this.ui.writeLine(chalk.yellow(message));
+  },
+
+  filterComponents(tree) {
+    let whitelist = this.generateWhitelist(this.bootstrapOptions.whitelist);
+    let blacklist = this.bootstrapOptions.blacklist || [];
+
+    // exit early if no opts defined
+    if (whitelist.length === 0 && blacklist.length === 0) {
+      return tree;
+    }
+
+    return new Funnel(tree, {
+      exclude: [(name) => this.excludeComponent(name, whitelist, blacklist)]
+    });
+  },
+
+  excludeComponent(name, whitelist, blacklist) {
+    let regex = /^(templates\/)?components\/(base\/)?/;
+    let isComponent = regex.test(name);
+    if (!isComponent) {
+      return false;
+    }
+
+    let baseName = name.replace(regex, '');
+    let firstSeparator = baseName.indexOf('/');
+    if (firstSeparator !== -1) {
+      baseName = baseName.substring(0, firstSeparator);
+    } else {
+      baseName = baseName.substring(0, baseName.lastIndexOf('.'));
+    }
+
+    let isWhitelisted = whitelist.indexOf(baseName) !== -1;
+    let isBlacklisted = blacklist.indexOf(baseName) !== -1;
+
+    if (whitelist.length === 0 && blacklist.length === 0) {
+      return false;
+    }
+
+    if (whitelist.length && blacklist.length === 0) {
+      return !isWhitelisted;
+    }
+
+    return isBlacklisted;
+  },
+
+  generateWhitelist(whitelist) {
+    let list = [];
+
+    if (!whitelist) {
+      return list;
+    }
+
+    function _addToWhitelist(item) {
+      if (list.indexOf(item) === -1) {
+        list.push(item);
+
+        if (componentDependencies[item]) {
+          componentDependencies[item].forEach(_addToWhitelist);
+        }
+      }
+    }
+
+    whitelist.forEach(_addToWhitelist);
+    return list;
   }
 };

@@ -19,7 +19,7 @@ export function testBS4() {
   return testForBootstrap(4, ...arguments);
 }
 
-function versionDependent(v3, v4) {
+export function versionDependent(v3, v4) {
   if (currentBootstrapVersion === 3) {
     return v3;
   }
@@ -45,6 +45,10 @@ export function formFeedbackClass() {
 
 export function validationErrorClass() {
   return versionDependent('has-error', 'has-danger');
+}
+
+export function validationWarningClass() {
+  return 'has-warning';
 }
 
 export function placementClassFor(type, placement) {

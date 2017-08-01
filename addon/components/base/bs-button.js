@@ -1,12 +1,9 @@
-import Ember from 'ember';
+import { scheduleOnce } from '@ember/runloop';
+import Component from '@ember/component';
+import { observer, computed } from '@ember/object';
 import layout from 'ember-bootstrap/templates/components/bs-button';
 import TypeClass from 'ember-bootstrap/mixins/type-class';
 import SizeClass from 'ember-bootstrap/mixins/size-class';
-
-const {
-  computed,
-  observer
-} = Ember;
 
 /**
  Implements a HTML button element, with support for all [Bootstrap button CSS styles](http://getbootstrap.com/css/#buttons)
@@ -37,7 +34,7 @@ const {
  The label of the button will be taken from the `<state>Text` property.
 
  ```hbs
- {{bs-button type="primary" icon="glyphicon glyphicon-download" textState=buttonState defaultText="Download" loadingText="Loading..." action="download"}}
+ {{bs-button type="primary" icon="glyphicon glyphicon-download" textState=buttonState defaultText="Download" loadingText="Loading..." onClick="download"}}
  ```
 
  ```js
@@ -57,7 +54,7 @@ const {
  manage an internal state ("default" > "pending" > "resolved"/"rejected") automatically, changing its label according to the state of the promise:
 
  ```hbs
- {{bs-button type="primary" icon="glyphicon glyphicon-download" defaultText="Download" pendingText="Loading..." resolvedText="Completed!" rejectedText="Oups!?" action=(action "download")}}
+ {{bs-button type="primary" icon="glyphicon glyphicon-download" defaultText="Download" pendingText="Loading..." resolvedText="Completed!" rejectedText="Oups!?" onClick=(action "download")}}
  ```
 
  ```js
@@ -78,7 +75,7 @@ const {
  @uses Mixins.SizeClass
  @public
  */
-export default Ember.Component.extend(TypeClass, SizeClass, {
+export default Component.extend(TypeClass, SizeClass, {
   layout,
   tagName: 'button',
   classNames: ['btn'],
@@ -143,6 +140,17 @@ export default Ember.Component.extend(TypeClass, SizeClass, {
    * @public
    */
   block: false,
+
+  /**
+   * A click event on a button will not bubble up the DOM tree if it has an `onClick` action handler. Set to true to
+   * enable the event to bubble
+   *
+   * @property bubble
+   * @type boolean
+   * @default false
+   * @public
+   */
+  bubble: false,
 
   /**
    * If button is active and this is set, the icon property will match this property
@@ -223,11 +231,13 @@ export default Ember.Component.extend(TypeClass, SizeClass, {
    * When clicking the button this action is called with the value of the button (that is the value of the "value" property).
    * Return a promise object, and the buttons state will automatically set to "pending", "resolved" and/or "rejected".
    *
+   * The click event will not bubble up, unless you set `bubble` to true.
+   *
    * @event onClick
    * @param {*} value
    * @public
    */
-  onClick(value) {}, // eslint-disable-line no-unused-vars
+  onClick: null,
 
   /**
    * This will reset the state property to 'default', and with that the button's label to defaultText
@@ -241,7 +251,7 @@ export default Ember.Component.extend(TypeClass, SizeClass, {
 
   resetObserver: observer('reset', function() {
     if (this.get('reset')) {
-      Ember.run.scheduleOnce('actions', this, function() {
+      scheduleOnce('actions', this, function() {
         this.set('textState', 'default');
       });
     }
@@ -256,22 +266,24 @@ export default Ember.Component.extend(TypeClass, SizeClass, {
    * @private
    */
   click() {
-    let promise = this.get('onClick')(this.get('value'));
-    if (promise && typeof promise.then === 'function') {
-      this.set('textState', 'pending');
-      promise.then(() => {
-        if (!this.get('isDestroyed')) {
-          this.set('textState', 'resolved');
+    let action = this.get('onClick');
+    if (action !== null) {
+      let promise = (action)(this.get('value'));
+      if (promise && typeof promise.then === 'function' && !this.get('isDestroyed')) {
+        this.set('textState', 'pending');
+        promise.then(() => {
+          if (!this.get('isDestroyed')) {
+            this.set('textState', 'resolved');
+          }
+        }, () => {
+          if (!this.get('isDestroyed')) {
+            this.set('textState', 'rejected');
+          }
         }
-      }, () => {
-        if (!this.get('isDestroyed')) {
-          this.set('textState', 'rejected');
-        }
+        );
       }
-      );
+      return this.get('bubble');
     }
-
-    return false;
   },
 
   init() {

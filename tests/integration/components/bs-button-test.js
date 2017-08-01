@@ -1,8 +1,9 @@
+import { run } from '@ember/runloop';
+import { Promise as EmberPromise } from 'rsvp';
 import { find, click } from 'ember-native-dom-helpers';
 import { moduleForComponent } from 'ember-qunit';
 import { test, defaultButtonClass } from '../../helpers/bootstrap-test';
 import hbs from 'htmlbars-inline-precompile';
-import Ember from 'ember';
 
 moduleForComponent('bs-button', 'Integration | Component | bs-button', {
   integration: true
@@ -126,7 +127,7 @@ test('clicking a button sends onclick action, if promise is returned from closur
   let promise, resolvePromise;
 
   this.on('testAction', () => {
-    promise = new Ember.RSVP.Promise(function(resolve) {
+    promise = new EmberPromise(function(resolve) {
       resolvePromise = resolve;
     });
     return promise;
@@ -138,13 +139,13 @@ test('clicking a button sends onclick action, if promise is returned from closur
   await click('button');
   assert.equal(find('button').textContent, 'pending');
 
-  Ember.run(resolvePromise);
+  run(resolvePromise);
 
   assert.equal(find('button').textContent, 'resolved');
 
 });
 
-test('clicking a button will prevent event to bubble up', async function(assert) {
+test('clicking a button with onClick action will prevent event to bubble up', async function(assert) {
   let buttonClick = this.spy();
   this.on('buttonClick', buttonClick);
   let parentClick = this.spy();
@@ -155,4 +156,27 @@ test('clicking a button will prevent event to bubble up', async function(assert)
   await click('button');
   assert.ok(buttonClick.called);
   assert.notOk(parentClick.called);
+});
+
+test('clicking a button without onClick action will cause event to bubble up', async function(assert) {
+  let parentClick = this.spy();
+  this.on('parentClick', parentClick);
+
+  this.render(hbs`<div {{action "parentClick"}}>{{#bs-button}}Button{{/bs-button}}</div>`);
+
+  await click('button');
+  assert.ok(parentClick.called);
+});
+
+test('clicking a button with onClick action and bubble=true will cause event to bubble up', async function(assert) {
+  let buttonClick = this.spy();
+  this.on('buttonClick', buttonClick);
+  let parentClick = this.spy();
+  this.on('parentClick', parentClick);
+
+  this.render(hbs`<div {{action "parentClick"}}>{{#bs-button bubble=true onClick=(action "buttonClick")}}Button{{/bs-button}}</div>`);
+
+  await click('button');
+  assert.ok(buttonClick.called);
+  assert.ok(parentClick.called);
 });

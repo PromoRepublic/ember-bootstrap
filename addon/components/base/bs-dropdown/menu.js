@@ -1,7 +1,6 @@
-import Ember from 'ember';
+import Component from '@ember/component';
+import { computed } from '@ember/object';
 import layout from 'ember-bootstrap/templates/components/bs-dropdown/menu';
-
-const { computed } = Ember;
 
 /**
  Component for the dropdown menu.
@@ -13,18 +12,18 @@ const { computed } = Ember;
  @extends Ember.Component
  @public
  */
-export default Ember.Component.extend({
+export default Component.extend({
   layout,
 
   /**
-   * Defaults to a `<ul>` tag. Change for other types of dropdown menus.
+   * Defaults to a `<ul>` tag in BS3 and a '<div>' tag in BS4. Change for other types of dropdown menus.
    *
    * @property tagName
    * @type string
    * @default ul
    * @public
    */
-  tagName: 'ul',
+
   classNames: ['dropdown-menu'],
   classNameBindings: ['alignClass'],
 

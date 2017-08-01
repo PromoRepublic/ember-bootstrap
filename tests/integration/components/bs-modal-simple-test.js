@@ -1,6 +1,17 @@
-import { find, findAll, click, keyEvent, waitUntil } from 'ember-native-dom-helpers';
+import {
+  find,
+  findAll,
+  click,
+  keyEvent,
+  waitUntil
+} from 'ember-native-dom-helpers';
+import wait from 'ember-test-helpers/wait';
 import { moduleForComponent } from 'ember-qunit';
-import { test, defaultButtonClass, visibilityClass } from '../../helpers/bootstrap-test';
+import {
+  test,
+  defaultButtonClass,
+  visibilityClass
+} from '../../helpers/bootstrap-test';
 import hbs from 'htmlbars-inline-precompile';
 
 moduleForComponent('bs-modal-simple', 'Integration | Component | bs-modal-simple', {
@@ -45,15 +56,40 @@ test('Simple modal supports custom buttons', function(assert) {
 
 });
 
+test('open modal is immediately shown', function(assert) {
+  this.render(hbs`{{#bs-modal-simple title="Simple Dialog" fade=false}}Hello world!{{/bs-modal-simple}}`);
+
+  assert.ok(find('.modal').classList.contains(visibilityClass()), 'Modal is visible');
+  assert.equal(find('.modal').style.display, 'block', 'Modal is visible');
+});
+
+test('open modal is immediately shown [fade]', function(assert) {
+  let done = assert.async();
+  this.render(hbs`{{#bs-modal-simple title="Simple Dialog"}}Hello world!{{/bs-modal-simple}}`);
+
+  assert.notOk(find('.modal').classList.contains(visibilityClass()), 'Modal is hidden');
+  assert.notEqual(find('.modal').style.display, 'block', 'Modal is visible');
+
+  // wait for fade animation
+  setTimeout(() => {
+    assert.equal(find('.modal').classList.contains(visibilityClass()), true, 'Modal is visible');
+    assert.equal(find('.modal').style.display, 'block', 'Modal is visible');
+    done();
+  }, transitionTimeout);
+});
+
 test('open property shows modal', function(assert) {
   this.set('open', false);
   this.render(hbs`{{#bs-modal-simple title="Simple Dialog" fade=false open=open}}Hello world!{{/bs-modal-simple}}`);
 
-  assert.equal(find('.modal').classList.contains(visibilityClass()), false, 'Modal is hidden');
+  assert.notOk(find('.modal').classList.contains(visibilityClass()), 'Modal is hidden');
+  assert.notEqual(find('.modal').style.display, 'block', 'Modal is hidden');
   this.set('open', true);
-  assert.equal(find('.modal').classList.contains(visibilityClass()), true, 'Modal is visible');
+  assert.ok(find('.modal').classList.contains(visibilityClass()), 'Modal is visible');
+  assert.equal(find('.modal').style.display, 'block', 'Modal is visible');
   this.set('open', false);
-  assert.equal(find('.modal').classList.contains(visibilityClass()), false, 'Modal is hidden');
+  assert.notOk(find('.modal').classList.contains(visibilityClass()), 'Modal is hidden');
+  assert.notEqual(find('.modal').style.display, 'block', 'Modal is hidden');
 });
 
 test('open property shows modal [fade]', function(assert) {
@@ -62,13 +98,16 @@ test('open property shows modal [fade]', function(assert) {
   this.render(hbs`{{#bs-modal-simple title="Simple Dialog" open=open}}Hello world!{{/bs-modal-simple}}`);
 
   assert.equal(find('.modal').classList.contains(visibilityClass()), false, 'Modal is hidden');
+  assert.notEqual(find('.modal').style.display, 'block', 'Modal is hidden');
   this.set('open', true);
   // wait for fade animation
   setTimeout(() => {
     assert.equal(find('.modal').classList.contains(visibilityClass()), true, 'Modal is visible');
+    assert.equal(find('.modal').style.display, 'block', 'Modal is visible');
     this.set('open', false);
     setTimeout(() => {
       assert.equal(find('.modal').classList.contains(visibilityClass()), false, 'Modal is hidden');
+      assert.notEqual(find('.modal').style.display, 'block', 'Modal is hidden');
       done();
     }, transitionTimeout);
   }, transitionTimeout);
@@ -272,7 +311,21 @@ test('when modal has a form and the submit button is clicked, the form is submit
   assert.notOk(modalSpy.called);
 });
 
-test('autofocus element is focused when present and fade=false', function(assert) {
+test('when modal has several forms and the submit button is clicked, those forms are submitted', async function(assert) {
+  let modalSpy = this.spy();
+  let formOneSpy = this.spy();
+  let formTwoSpy = this.spy();
+  this.on('modalSubmit', modalSpy);
+  this.on('formOneSubmit', formOneSpy);
+  this.on('formTwoSubmit', formTwoSpy);
+  this.render(hbs`{{#bs-modal-simple title="Simple Dialog" closeTitle="Cancel" submitTitle="Ok" onSubmit=(action "modalSubmit") as |modal|}}{{#bs-form onSubmit=(action "formOneSubmit")}}{{/bs-form}}{{#bs-form onSubmit=(action "formTwoSubmit")}}{{/bs-form}}{{/bs-modal-simple}}`);
+  await click('.modal .modal-footer button.btn-primary');
+  assert.ok(formOneSpy.calledOnce);
+  assert.ok(formTwoSpy.calledOnce);
+  assert.notOk(modalSpy.called);
+});
+
+test('autofocus element is focused when present and fade=false', async function(assert) {
   let action = this.spy();
   this.on('focusAction', action);
 
@@ -282,6 +335,7 @@ test('autofocus element is focused when present and fade=false', function(assert
       <input class="my-input" autofocus="autofocus" onfocus={{action "focusAction"}}> blahblahblah
     {{/bs-modal-simple}}
   `);
+  await wait();
 
   this.set('open', true);
   assert.ok(action.calledOnce, 'focus was triggered on the autofocus element');
@@ -291,6 +345,7 @@ test('Pressing escape key will close the modal if keyboard=true', async function
   let action = this.spy();
   this.on('testAction', action);
   this.render(hbs`{{#bs-modal-simple title="Simple Dialog" onHide=(action "testAction") keyboard=true}}Hello world!{{/bs-modal-simple}}`);
+  await wait();
 
   // wait for fade animation
   await waitUntil(() => find('.modal').classList.contains(visibilityClass()));
@@ -311,8 +366,9 @@ test('Pressing escape key will close the modal if keyboard=true and element is a
     {{#bs-modal-simple title="Simple Dialog" onHide=(action "testAction") keyboard=true}}
       <input autofocus="autofocus"/>
     {{/bs-modal-simple}}
-    
+
   `);
+  await wait();
 
   // wait for fade animation
   await waitUntil(() => find('.modal').classList.contains(visibilityClass()));
@@ -330,6 +386,7 @@ test('Pressing escape key is ignored if keyboard=false', async function(assert) 
   let hideSpy = this.spy();
   this.on('testAction', hideSpy);
   this.render(hbs`{{#bs-modal-simple title="Simple Dialog" onHide=(action "testAction") keyboard=false}}Hello world!{{/bs-modal-simple}}`);
+  await wait();
 
   // wait for fade animation
   await waitUntil(() => find('.modal').classList.contains(visibilityClass()));
@@ -344,6 +401,7 @@ test('Clicking on the backdrop will close the modal', async function(assert) {
   let hideSpy = this.spy();
   this.on('testAction', hideSpy);
   this.render(hbs`{{#bs-modal-simple title="Simple Dialog" onHide=(action "testAction")}}Hello world!{{/bs-modal-simple}}`);
+  await wait();
 
   // wait for fade animation
   await waitUntil(() => find('.modal').classList.contains(visibilityClass()));

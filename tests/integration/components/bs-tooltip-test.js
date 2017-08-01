@@ -1,43 +1,23 @@
-import { find, findAll, click, focus, blur, triggerEvent } from 'ember-native-dom-helpers';
-import Ember from 'ember';
+import Component from '@ember/component';
+import {
+  find,
+  findAll,
+  click,
+  focus,
+  blur,
+  triggerEvent
+} from 'ember-native-dom-helpers';
 import { moduleForComponent } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
-import sinonTest from 'ember-sinon-qunit/test-support/test';
 import { test, visibilityClass } from '../../helpers/bootstrap-test';
+import {
+  setupForPositioning,
+  assertPositioning
+} from '../../helpers/contextual-help';
 
 moduleForComponent('bs-tooltip', 'Integration | Component | bs-tooltip', {
   integration: true
 });
-
-function setupForPositioning() {
-  Object.assign(find('#wrapper').style, {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    textAlign: 'right',
-    width: 300,
-    height: 300
-  });
-
-  find('a').style.marginTop = 200;
-}
-
-function offset(el) {
-  let rect = el.getBoundingClientRect();
-
-  return {
-    top: rect.top + document.body.scrollTop,
-    left: rect.left + document.body.scrollLeft
-  };
-}
-
-function assertPositioning(assert) {
-  assert.equal(findAll('.tooltip').length, 1, 'Tooltip exists.');
-
-  let tooltip = find('.tooltip');
-  let trigger = find('#target');
-  assert.ok(Math.round(offset(tooltip).top + tooltip.offsetHeight) <= Math.round(offset(trigger).top));
-}
 
 function isVisible(tt) {
   return tt && tt.classList.contains('fade') && tt.classList.contains(visibilityClass());
@@ -106,7 +86,7 @@ test('it allows changing the trigger element to some arbitrary element', async f
 });
 
 test('it allows changing the trigger element to the parent view', async function(assert) {
-  let dummyComponent = Ember.Component.extend({
+  let dummyComponent = Component.extend({
     layout: hbs`<div>{{yield}}</div>`
   });
   this.register('component:dum-my', dummyComponent);
@@ -120,7 +100,7 @@ test('it allows changing the trigger element to the parent view', async function
   assert.equal(findAll('.tooltip').length, 0, 'tooltip is not visible');
 });
 
-sinonTest('it calls onShow/onShown actions when showing tooltip [fade=false]', async function(assert) {
+test('it calls onShow/onShown actions when showing tooltip [fade=false]', async function(assert) {
   let showAction = this.spy();
   this.on('show', showAction);
   let shownAction = this.spy();
@@ -131,7 +111,7 @@ sinonTest('it calls onShow/onShown actions when showing tooltip [fade=false]', a
   assert.ok(shownAction.calledOnce, 'show action has been called');
 });
 
-sinonTest('it aborts showing if onShow action returns false', async function(assert) {
+test('it aborts showing if onShow action returns false', async function(assert) {
   let showAction = this.stub();
   showAction.returns(false);
   this.on('show', showAction);
@@ -144,7 +124,7 @@ sinonTest('it aborts showing if onShow action returns false', async function(ass
   assert.equal(findAll('.tooltip').length, 0, 'tooltip is not visible');
 });
 
-sinonTest('it calls onHide/onHidden actions when hiding tooltip [fade=false]', async function(assert) {
+test('it calls onHide/onHidden actions when hiding tooltip [fade=false]', async function(assert) {
   let hideAction = this.spy();
   this.on('hide', hideAction);
   let hiddenAction = this.spy();
@@ -156,7 +136,7 @@ sinonTest('it calls onHide/onHidden actions when hiding tooltip [fade=false]', a
   assert.ok(hiddenAction.calledOnce, 'hidden action was called');
 });
 
-sinonTest('it aborts hiding if onHide action returns false', async function(assert) {
+test('it aborts hiding if onHide action returns false', async function(assert) {
   let hideAction = this.stub();
   hideAction.returns(false);
   this.on('hide', hideAction);
@@ -203,10 +183,10 @@ test('Renders in place (no wormhole) if renderInPlace is set', function(assert) 
 test('should place tooltip on top of element', async function(assert) {
   this.render(hbs`<div id="wrapper"><p style="margin-top: 200px"><a href="#" id="target">Hover me{{bs-tooltip title="very very very very very very very long tooltip" fade=false}}</a></p></div>`);
 
-  setupForPositioning.call(this);
+  setupForPositioning();
 
   await triggerEvent('#target', 'mouseenter');
-  assertPositioning.call(this, assert);
+  assertPositioning(assert);
 });
 
 test('should place tooltip on top of element if already visible', function(assert) {
@@ -214,9 +194,9 @@ test('should place tooltip on top of element if already visible', function(asser
   let done = assert.async();
   this.render(hbs`<div id="wrapper"><p style="margin-top: 200px"><a href="#" id="target">Hover me{{bs-tooltip title="very very very very very very very long tooltip" fade=false visible=true}}</a></p></div>`);
 
-  setupForPositioning.call(this);
+  setupForPositioning();
   setTimeout(function() {
-    assertPositioning.call(this, assert);
+    assertPositioning(assert);
     done();
   }, 0);
 });
@@ -225,10 +205,10 @@ test('should place tooltip on top of element if visible is set to true', functio
   this.set('visible', false);
   this.render(hbs`<div id="wrapper"><p style="margin-top: 200px"><a href="#" id="target">Hover me{{bs-tooltip title="very very very very very very very long tooltip" fade=false visible=visible}}</a></p></div>`);
 
-  setupForPositioning.call(this);
+  setupForPositioning();
 
   this.set('visible', true);
-  assertPositioning.call(this, assert);
+  assertPositioning(assert);
 });
 
 test('should show tooltip if leave event hasn\'t occurred before delay expires', function(assert) {
